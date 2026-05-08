@@ -43,15 +43,23 @@ export class D1ArticleRepository implements ArticleRepository {
     for (const record of records) {
       await this.db
         .prepare(
-          `INSERT INTO articles (canonical_url, title, published_at, categories_json, content_hash, first_seen_at)
-           VALUES (?, ?, ?, ?, ?, datetime('now'))
+          `INSERT INTO articles (canonical_url, title, published_at, categories_json, keywords_json, content_hash, first_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
            ON CONFLICT(canonical_url) DO UPDATE SET
              title = excluded.title,
              published_at = excluded.published_at,
              categories_json = excluded.categories_json,
+             keywords_json = excluded.keywords_json,
              content_hash = excluded.content_hash`
         )
-        .bind(record.canonicalUrl, record.title, record.publishedAt, record.categoriesJson, record.contentHash)
+        .bind(
+          record.canonicalUrl,
+          record.title,
+          record.publishedAt,
+          record.categoriesJson,
+          record.keywordsJson,
+          record.contentHash
+        )
         .run();
     }
 
@@ -64,11 +72,15 @@ export class D1ArticleRepository implements ArticleRepository {
       title TEXT NOT NULL,
       published_at TEXT NOT NULL,
       categories_json TEXT NOT NULL,
+      keywords_json TEXT NOT NULL,
       content_hash TEXT NOT NULL,
       first_seen_at TEXT NOT NULL
     )`);
 
     await this.db.exec("ALTER TABLE articles ADD COLUMN content_hash TEXT").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN keywords_json TEXT").catch(() => {
       return;
     });
   }

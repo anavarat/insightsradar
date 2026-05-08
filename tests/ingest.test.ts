@@ -112,6 +112,8 @@ describe("runIngestion", () => {
     expect(count.enqueued).toBe(1);
     expect(persisted).toHaveLength(1);
     expect(persisted[0]?.canonicalUrl).toBe("https://blog.cloudflare.com/same");
+    expect(() => JSON.parse(persisted[0]?.keywordsJson ?? "")).not.toThrow();
+    expect(JSON.parse(persisted[0]?.keywordsJson ?? "[]").length).toBeGreaterThan(0);
     expect(queued).toEqual([{ canonicalUrl: "https://blog.cloudflare.com/same", reason: "new" }]);
   });
 

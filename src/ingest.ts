@@ -1,4 +1,5 @@
 import type { AppConfig } from "./config";
+import { extractRankedKeywords } from "./keywords";
 
 export type DiscoveredArticle = {
   canonicalUrl: string;
@@ -13,6 +14,7 @@ export type ArticleRecord = {
   publishedAt: string;
   categoriesJson: string;
   contentHash: string;
+  keywordsJson: string;
 };
 
 export type ArticleRepository = {
@@ -42,6 +44,18 @@ export async function runIngestion(params: {
   const deduped = dedupeByCanonicalUrl(eligible);
   const existingHashes = await params.repository.getContentHashes(deduped.map((d) => d.canonicalUrl));
   const records = deduped.map((article) => ({
+    // Slice 4 baseline: combine explicit title mentions with inferred/category signals.
+    // Full body-aware extraction is added later in digest pipeline slices.
+    keywordsJson: JSON.stringify(
+      extractRankedKeywords({
+        articleTitle: article.title,
+        articleBody: "",
+        categories: article.categories,
+        inferredAreas: article.categories,
+        topN: 5,
+        maxN: 8
+      })
+    ),
     canonicalUrl: article.canonicalUrl,
     title: article.title,
     publishedAt: article.publishedAt,

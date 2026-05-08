@@ -23,3 +23,8 @@ Current state:
 - Change: Implemented slice #3 update detection and queue enqueue flow by comparing per-article content hash against stored D1 hashes, enqueuing only new/changed canonical URLs.
 - Files: `src/ingest.ts`, `src/repository.ts`, `src/index.ts`, `src/config.ts`, `tests/ingest.test.ts`, `meta/compact-delta.md`.
 - Validation: `npm test` (13 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).
+
+## 2026-05-09 02:41 AEST
+- Change: Implemented slice #4 keyword extraction and normalization pipeline with canonical taxonomy mapping, hybrid explicit/inferred/category signals, ranked top-N output, and metadata persistence into D1.
+- Files: `src/keywords.ts`, `tests/keywords.test.ts`, `src/ingest.ts`, `src/repository.ts`, `tests/ingest.test.ts`, `meta/compact-delta.md`.
+- Validation: `npm test` (16 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).
