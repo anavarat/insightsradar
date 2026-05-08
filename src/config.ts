@@ -19,7 +19,9 @@ export type Env = {
       };
     };
   };
-  BLOG_ARTIFACTS_BUCKET?: unknown;
+  BLOG_ARTIFACTS_BUCKET?: {
+    put: (key: string, value: string, options?: { httpMetadata?: { contentType?: string } }) => Promise<unknown>;
+  };
   BLOG_JOB_QUEUE?: {
     send: (message: { canonicalUrl: string; reason: "new" | "changed" }) => Promise<void>;
   };

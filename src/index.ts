@@ -1,4 +1,5 @@
 import { loadConfig, type Env } from "./config";
+import { persistArtifacts } from "./artifacts";
 import { generateDigestsWithFailover } from "./digest";
 import { parseCloudflareRss, runIngestion } from "./ingest";
 import { D1ArticleRepository } from "./repository";
@@ -76,6 +77,9 @@ async function processDigestQueueMessage(env: Env, message: { canonicalUrl: stri
   if (!env.AI) {
     throw new Error("AI binding is required");
   }
+  if (!env.BLOG_ARTIFACTS_BUCKET) {
+    throw new Error("BLOG_ARTIFACTS_BUCKET binding is required");
+  }
 
   const config = loadConfig(env);
   const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
@@ -100,11 +104,33 @@ async function processDigestQueueMessage(env: Env, message: { canonicalUrl: stri
   });
 
   if (generation.ok) {
+    const persisted = await persistArtifacts({
+      bucket: env.BLOG_ARTIFACTS_BUCKET,
+      canonicalUrl: message.canonicalUrl,
+      articleTitle: article.title,
+      articleBody: "",
+      rankedKeywords,
+      artifacts: generation.artifacts,
+      modelPrimary: config.primaryModel,
+      modelFallback: config.fallbackModel,
+      modelUsedFinal: generation.modelUsed,
+      attempts: generation.attempts
+    });
+
     await repository.markDigestSuccess({
       canonicalUrl: message.canonicalUrl,
+      modelPrimary: config.primaryModel,
+      modelFallback: config.fallbackModel,
       modelUsedFinal: generation.modelUsed,
       retryCount: generation.attempts.length - 1,
-      artifacts: generation.artifacts
+      artifacts: generation.artifacts,
+      wordCountArticle: persisted.wordCounts.article,
+      wordCountKeyworddigest: persisted.wordCounts.keyworddigest,
+      wordCountLevel1digest: persisted.wordCounts.level1digest,
+      wordCountLevel2digest: persisted.wordCounts.level2digest,
+      r2SourceKey: persisted.keys.sourceKey,
+      r2Level1Key: persisted.keys.level1Key,
+      r2Level2Key: persisted.keys.level2Key
     });
     return;
   }

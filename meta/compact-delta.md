@@ -33,3 +33,8 @@ Current state:
 - Change: Implemented slice #5 Workers AI digest generation with primary/fallback failover, schema validation, retry logic (3 per model), and queue-consumer status updates for `processed` and `digest_failed` outcomes.
 - Files: `src/digest.ts`, `tests/digest.test.ts`, `src/index.ts`, `src/repository.ts`, `src/config.ts`, `meta/compact-delta.md`.
 - Validation: `npm test` (19 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).
+
+## 2026-05-09 02:56 AEST
+- Change: Implemented slice #6 artifact persistence by storing source and digest payloads in R2, recording D1 metadata for R2 keys/model fields/status, and tracking word counts for article plus all digest levels.
+- Files: `src/artifacts.ts`, `tests/artifacts.test.ts`, `src/index.ts`, `src/repository.ts`, `src/config.ts`, `meta/compact-delta.md`.
+- Validation: `npm test` (22 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).

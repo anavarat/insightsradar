@@ -72,13 +72,15 @@ export class D1ArticleRepository implements ArticleRepository {
   async getArticleForDigest(canonicalUrl: string): Promise<{
     canonicalUrl: string;
     title: string;
+    publishedAt: string;
+    categoriesJson: string;
     keywordsJson: string;
   } | null> {
     await this.ensureSchema();
     const row = await this.db
-      .prepare("SELECT canonical_url, title, keywords_json FROM articles WHERE canonical_url = ?")
+      .prepare("SELECT canonical_url, title, published_at, categories_json, keywords_json FROM articles WHERE canonical_url = ?")
       .bind(canonicalUrl)
-      .all<{ canonical_url: string; title: string; keywords_json: string }>();
+      .all<{ canonical_url: string; title: string; published_at: string; categories_json: string; keywords_json: string }>();
     const item = row.results[0];
     if (!item) {
       return null;
@@ -86,31 +88,65 @@ export class D1ArticleRepository implements ArticleRepository {
     return {
       canonicalUrl: item.canonical_url,
       title: item.title,
+      publishedAt: item.published_at,
+      categoriesJson: item.categories_json,
       keywordsJson: item.keywords_json
     };
   }
 
-  async markDigestSuccess(params: { canonicalUrl: string; modelUsedFinal: string; retryCount: number; artifacts: DigestArtifacts }): Promise<void> {
+  async markDigestSuccess(params: {
+    canonicalUrl: string;
+    modelPrimary: string;
+    modelFallback: string;
+    modelUsedFinal: string;
+    retryCount: number;
+    artifacts: DigestArtifacts;
+    wordCountArticle: number;
+    wordCountKeyworddigest: number;
+    wordCountLevel1digest: number;
+    wordCountLevel2digest: number;
+    r2SourceKey: string;
+    r2Level1Key: string;
+    r2Level2Key: string;
+  }): Promise<void> {
     await this.ensureSchema();
     await this.db
       .prepare(
         `UPDATE articles
          SET status = ?,
              failure_reason = NULL,
+             model_primary = ?,
+             model_fallback = ?,
              model_used_final = ?,
              retry_count = ?,
              keyworddigest = ?,
              level1digest_json = ?,
-             level2digest_json = ?
+             level2digest_json = ?,
+             word_count_article = ?,
+             word_count_keyworddigest = ?,
+             word_count_level1digest = ?,
+             word_count_level2digest = ?,
+             r2_source_key = ?,
+             r2_level1_key = ?,
+             r2_level2_key = ?
          WHERE canonical_url = ?`
       )
       .bind(
         "processed",
+        params.modelPrimary,
+        params.modelFallback,
         params.modelUsedFinal,
         params.retryCount,
         params.artifacts.keyworddigest,
         JSON.stringify(params.artifacts.level1digest),
         JSON.stringify(params.artifacts.level2digest),
+        params.wordCountArticle,
+        params.wordCountKeyworddigest,
+        params.wordCountLevel1digest,
+        params.wordCountLevel2digest,
+        params.r2SourceKey,
+        params.r2Level1Key,
+        params.r2Level2Key,
         params.canonicalUrl
       )
       .run();
@@ -149,11 +185,20 @@ export class D1ArticleRepository implements ArticleRepository {
       status TEXT,
       failure_reason TEXT,
       retry_count INTEGER,
+      model_primary TEXT,
+      model_fallback TEXT,
       model_used_final TEXT,
       keyworddigest TEXT,
       level1digest_json TEXT,
       level2digest_json TEXT,
       digest_attempts_json TEXT,
+      word_count_article INTEGER,
+      word_count_keyworddigest INTEGER,
+      word_count_level1digest INTEGER,
+      word_count_level2digest INTEGER,
+      r2_source_key TEXT,
+      r2_level1_key TEXT,
+      r2_level2_key TEXT,
       first_seen_at TEXT NOT NULL
     )`);
 
@@ -175,6 +220,12 @@ export class D1ArticleRepository implements ArticleRepository {
     await this.db.exec("ALTER TABLE articles ADD COLUMN model_used_final TEXT").catch(() => {
       return;
     });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN model_primary TEXT").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN model_fallback TEXT").catch(() => {
+      return;
+    });
     await this.db.exec("ALTER TABLE articles ADD COLUMN keyworddigest TEXT").catch(() => {
       return;
     });
@@ -185,6 +236,27 @@ export class D1ArticleRepository implements ArticleRepository {
       return;
     });
     await this.db.exec("ALTER TABLE articles ADD COLUMN digest_attempts_json TEXT").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN word_count_article INTEGER").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN word_count_keyworddigest INTEGER").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN word_count_level1digest INTEGER").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN word_count_level2digest INTEGER").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN r2_source_key TEXT").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN r2_level1_key TEXT").catch(() => {
+      return;
+    });
+    await this.db.exec("ALTER TABLE articles ADD COLUMN r2_level2_key TEXT").catch(() => {
       return;
     });
   }
