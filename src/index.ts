@@ -1,4 +1,6 @@
 import { loadConfig, type Env } from "./config";
+import { parseCloudflareRss, runIngestion } from "./ingest";
+import { D1ArticleRepository } from "./repository";
 
 type HealthResponse = {
   status: "ok";
@@ -39,6 +41,29 @@ function notFound(): Response {
   return json({ error: "Not Found" }, { status: 404 });
 }
 
+async function ingest(env: Env): Promise<void> {
+  if (!env.BLOG_METADATA_DB) {
+    throw new Error("BLOG_METADATA_DB binding is required");
+  }
+
+  const config = loadConfig(env);
+  const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+
+  await runIngestion({
+    config,
+    repository,
+    discover: async () => {
+      const response = await fetch("https://blog.cloudflare.com/rss/");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch Cloudflare RSS: ${response.status}`);
+      }
+
+      const xml = await response.text();
+      return parseCloudflareRss(xml);
+    }
+  });
+}
+
 const worker = {
   fetch(request: Request, env: Env, _ctx?: unknown): Response {
     const { pathname } = new URL(request.url);
@@ -46,6 +71,9 @@ const worker = {
       return health(env);
     }
     return notFound();
+  },
+  async scheduled(_event: unknown, env: Env, _ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
+    await ingest(env);
   }
 };
 

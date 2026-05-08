@@ -2,6 +2,9 @@ name = "insightsradar"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
+[triggers]
+crons = ["0 * * * *"]
+
 [vars]
 INGESTION_MODE = "product_engineering_only"
 INGESTION_START_DATE = "2026-05-01T00:00:00Z"

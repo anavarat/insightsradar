@@ -10,7 +10,14 @@ export type Env = {
   PRIMARY_MODEL?: string;
   FALLBACK_MODEL?: string;
   ADMIN_TOKEN?: string;
-  BLOG_METADATA_DB?: unknown;
+  BLOG_METADATA_DB?: {
+    exec: (query: string) => Promise<unknown>;
+    prepare: (query: string) => {
+      bind: (...values: unknown[]) => {
+        run: () => Promise<unknown>;
+      };
+    };
+  };
   BLOG_ARTIFACTS_BUCKET?: unknown;
   BLOG_JOB_QUEUE?: unknown;
   AI?: unknown;
