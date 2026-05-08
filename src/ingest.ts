@@ -12,39 +12,66 @@ export type ArticleRecord = {
   title: string;
   publishedAt: string;
   categoriesJson: string;
+  contentHash: string;
 };
 
 export type ArticleRepository = {
   upsertMany(records: ArticleRecord[]): Promise<number>;
+  getContentHashes(canonicalUrls: string[]): Promise<Map<string, string>>;
+};
+
+export type ArticleJobQueue = {
+  send(message: { canonicalUrl: string; reason: "new" | "changed" }): Promise<void>;
 };
 
 export type IngestionStats = {
   discovered: number;
   eligible: number;
   upserted: number;
+  enqueued: number;
 };
 
 export async function runIngestion(params: {
   config: AppConfig;
   repository: ArticleRepository;
+  queue: ArticleJobQueue;
   discover: () => Promise<DiscoveredArticle[]>;
 }): Promise<IngestionStats> {
   const discovered = await params.discover();
   const eligible = filterEligibleArticles(discovered, params.config);
   const deduped = dedupeByCanonicalUrl(eligible);
+  const existingHashes = await params.repository.getContentHashes(deduped.map((d) => d.canonicalUrl));
   const records = deduped.map((article) => ({
     canonicalUrl: article.canonicalUrl,
     title: article.title,
     publishedAt: article.publishedAt,
-    categoriesJson: JSON.stringify(article.categories)
+    categoriesJson: JSON.stringify(article.categories),
+    contentHash: buildContentHash(article)
   }));
 
   const upserted = await params.repository.upsertMany(records);
+  const jobs = records
+    .map((record) => {
+      const previousHash = existingHashes.get(record.canonicalUrl);
+      if (!previousHash) {
+        return { canonicalUrl: record.canonicalUrl, reason: "new" as const };
+      }
+      if (previousHash !== record.contentHash) {
+        return { canonicalUrl: record.canonicalUrl, reason: "changed" as const };
+      }
+      return null;
+    })
+    .filter((x): x is { canonicalUrl: string; reason: "new" | "changed" } => x !== null);
+
+  for (const job of jobs) {
+    await params.queue.send(job);
+  }
 
   return {
     discovered: discovered.length,
     eligible: deduped.length,
-    upserted
+    upserted,
+    enqueued: jobs.length
   };
 }
 
@@ -128,4 +155,10 @@ function decodeXml(value: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
+}
+
+export function buildContentHash(article: DiscoveredArticle): string {
+  const normalizedCategories = [...article.categories].sort().join("|");
+  const payload = `${article.canonicalUrl}\n${article.title}\n${article.publishedAt}\n${normalizedCategories}`;
+  return payload;
 }

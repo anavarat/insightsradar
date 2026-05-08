@@ -18,3 +18,8 @@ Current state:
 - Change: Implemented slice #2 hourly ingestion path with cron trigger, Cloudflare RSS discovery, eligibility filtering by start date and ingestion mode, canonical URL dedupe, and D1 upsert persistence baseline.
 - Files: `src/ingest.ts`, `src/repository.ts`, `src/index.ts`, `src/config.ts`, `tests/ingest.test.ts`, `wrangler.toml`, `meta/compact-delta.md`.
 - Validation: `npm test` (12 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).
+
+## 2026-05-09 02:27 AEST
+- Change: Implemented slice #3 update detection and queue enqueue flow by comparing per-article content hash against stored D1 hashes, enqueuing only new/changed canonical URLs.
+- Files: `src/ingest.ts`, `src/repository.ts`, `src/index.ts`, `src/config.ts`, `tests/ingest.test.ts`, `meta/compact-delta.md`.
+- Validation: `npm test` (13 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).

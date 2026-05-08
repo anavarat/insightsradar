@@ -45,6 +45,9 @@ async function ingest(env: Env): Promise<void> {
   if (!env.BLOG_METADATA_DB) {
     throw new Error("BLOG_METADATA_DB binding is required");
   }
+  if (!env.BLOG_JOB_QUEUE) {
+    throw new Error("BLOG_JOB_QUEUE binding is required");
+  }
 
   const config = loadConfig(env);
   const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
@@ -52,6 +55,7 @@ async function ingest(env: Env): Promise<void> {
   await runIngestion({
     config,
     repository,
+    queue: env.BLOG_JOB_QUEUE,
     discover: async () => {
       const response = await fetch("https://blog.cloudflare.com/rss/");
       if (!response.ok) {

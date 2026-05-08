@@ -67,6 +67,7 @@ describe("ingestion eligibility", () => {
 describe("runIngestion", () => {
   it("dedupes by canonical URL before persisting", async () => {
     const persisted: ArticleRecord[] = [];
+    const queued: Array<{ canonicalUrl: string; reason: "new" | "changed" }> = [];
 
     const count = await runIngestion({
       config: {
@@ -76,9 +77,17 @@ describe("runIngestion", () => {
         fallbackModel: "b"
       },
       repository: {
+        async getContentHashes() {
+          return new Map();
+        },
         async upsertMany(records) {
           persisted.push(...records);
           return records.length;
+        }
+      },
+      queue: {
+        async send(message) {
+          queued.push(message);
         }
       },
       discover: async () => [
@@ -100,8 +109,56 @@ describe("runIngestion", () => {
     expect(count.discovered).toBe(2);
     expect(count.eligible).toBe(1);
     expect(count.upserted).toBe(1);
+    expect(count.enqueued).toBe(1);
     expect(persisted).toHaveLength(1);
     expect(persisted[0]?.canonicalUrl).toBe("https://blog.cloudflare.com/same");
+    expect(queued).toEqual([{ canonicalUrl: "https://blog.cloudflare.com/same", reason: "new" }]);
+  });
+
+  it("only enqueues changed records when content hash differs", async () => {
+    const queued: Array<{ canonicalUrl: string; reason: "new" | "changed" }> = [];
+
+    const count = await runIngestion({
+      config: {
+        ingestionMode: "all",
+        ingestionStartDate: "2026-05-01T00:00:00Z",
+        primaryModel: "a",
+        fallbackModel: "b"
+      },
+      repository: {
+        async getContentHashes() {
+          return new Map([
+            ["https://blog.cloudflare.com/unchanged", "https://blog.cloudflare.com/unchanged\nUnchanged\n2026-05-03T10:00:00.000Z\nWorkers"],
+            ["https://blog.cloudflare.com/changed", "old-hash"]
+          ]);
+        },
+        async upsertMany(records) {
+          return records.length;
+        }
+      },
+      queue: {
+        async send(message) {
+          queued.push(message);
+        }
+      },
+      discover: async () => [
+        {
+          canonicalUrl: "https://blog.cloudflare.com/unchanged",
+          title: "Unchanged",
+          publishedAt: "2026-05-03T10:00:00.000Z",
+          categories: ["Workers"]
+        },
+        {
+          canonicalUrl: "https://blog.cloudflare.com/changed",
+          title: "Changed",
+          publishedAt: "2026-05-03T10:00:00.000Z",
+          categories: ["Workers"]
+        }
+      ]
+    });
+
+    expect(count.enqueued).toBe(1);
+    expect(queued).toEqual([{ canonicalUrl: "https://blog.cloudflare.com/changed", reason: "changed" }]);
   });
 });
 

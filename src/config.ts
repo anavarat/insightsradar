@@ -15,11 +15,14 @@ export type Env = {
     prepare: (query: string) => {
       bind: (...values: unknown[]) => {
         run: () => Promise<unknown>;
+        all: <T>() => Promise<{ results: T[] }>;
       };
     };
   };
   BLOG_ARTIFACTS_BUCKET?: unknown;
-  BLOG_JOB_QUEUE?: unknown;
+  BLOG_JOB_QUEUE?: {
+    send: (message: { canonicalUrl: string; reason: "new" | "changed" }) => Promise<void>;
+  };
   AI?: unknown;
 };
 
