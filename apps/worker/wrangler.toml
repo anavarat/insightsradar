@@ -2,6 +2,9 @@ name = "insightsradar"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
+[assets]
+directory = "../web/dist"
+
 [triggers]
 crons = ["0 * * * *"]
 

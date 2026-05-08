@@ -38,3 +38,18 @@ Current state:
 - Change: Implemented slice #6 artifact persistence by storing source and digest payloads in R2, recording D1 metadata for R2 keys/model fields/status, and tracking word counts for article plus all digest levels.
 - Files: `src/artifacts.ts`, `tests/artifacts.test.ts`, `src/index.ts`, `src/repository.ts`, `src/config.ts`, `meta/compact-delta.md`.
 - Validation: `npm test` (22 tests passed), `npm run typecheck` (pass), `npx wrangler deploy --dry-run` (pass with bindings).
+
+## 2026-05-09 03:07 AEST
+- Change: Added ADR-0001 to formalize monorepo target structure (`apps/worker`, `apps/web`, `packages/shared`) and v1 deploy shape (native Worker handlers, no Hono in v1).
+- Files: `docs/adr/0001-monorepo-structure-and-v1-deploy-shape.md`, `meta/compact-delta.md`.
+- Validation: ADR reviewed against PRD and slice dependency context for #7 and #8.
+
+## 2026-05-09 03:36 AEST
+- Change: Refined ADR-0001 from grill outcomes by explicitly recording SPA fallback route ownership and infinite-scroll backing contract with opaque cursor pagination based on `(published_at, canonical_url)`.
+- Files: `docs/adr/0001-monorepo-structure-and-v1-deploy-shape.md`, `meta/compact-delta.md`.
+- Validation: Confirmed consistency with PRD FR-9 (`ArticlesTileView` infinite scroll) and API contract section for cursor-based feed pagination.
+
+## 2026-05-09 03:47 AEST
+- Change: Implemented prep issue #11 monorepo migration by moving backend runtime to `apps/worker`, scaffolding React+Vite router app in `apps/web`, adding `packages/shared` contracts package, and enabling npm workspaces with cross-workspace scripts.
+- Files: `package.json`, `package-lock.json`, `apps/worker/**`, `apps/web/**`, `packages/shared/**`, `meta/compact-delta.md`.
+- Validation: `npm test` (all workspaces pass, worker 22 tests pass), `npm run typecheck` (all workspaces pass), `npm run build:web` (pass), `npm run -w @insightsradar/worker dry-run` (pass with assets + bindings).

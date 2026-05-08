@@ -1,15 +1,19 @@
 {
-  "name": "insightsradar",
+  "name": "insightsradar-monorepo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test": "npm run --workspaces test",
+    "typecheck": "npm run --workspaces typecheck",
+    "test:worker": "npm run -w @insightsradar/worker test",
+    "typecheck:worker": "npm run -w @insightsradar/worker typecheck",
+    "build:web": "npm run -w @insightsradar/web build",
+    "dev:web": "npm run -w @insightsradar/web dev"
   },
-  "devDependencies": {
-    "typescript": "^5.8.3",
-    "vitest": "^2.1.8"
-  }
+  "devDependencies": {}
 }

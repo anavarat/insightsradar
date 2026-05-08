@@ -1,0 +1,20 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #f7fafc 0%, #eef3f9 100%);
+  color: #0f172a;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+h1 {
+  margin-top: 0;
+}
