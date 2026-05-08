@@ -1,4 +1,5 @@
 import { loadConfig, type Env } from "./config";
+import { generateDigestsWithFailover } from "./digest";
 import { parseCloudflareRss, runIngestion } from "./ingest";
 import { D1ArticleRepository } from "./repository";
 
@@ -68,6 +69,65 @@ async function ingest(env: Env): Promise<void> {
   });
 }
 
+async function processDigestQueueMessage(env: Env, message: { canonicalUrl: string; reason: "new" | "changed" }): Promise<void> {
+  if (!env.BLOG_METADATA_DB) {
+    throw new Error("BLOG_METADATA_DB binding is required");
+  }
+  if (!env.AI) {
+    throw new Error("AI binding is required");
+  }
+
+  const config = loadConfig(env);
+  const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+  const article = await repository.getArticleForDigest(message.canonicalUrl);
+  if (!article) {
+    return;
+  }
+
+  const rankedKeywords = safeKeywords(article.keywordsJson);
+  const generation = await generateDigestsWithFailover({
+    request: {
+      articleTitle: article.title,
+      articleBody: "",
+      rankedKeywords
+    },
+    primaryModel: config.primaryModel,
+    fallbackModel: config.fallbackModel,
+    invokeModel: async (model, prompt) =>
+      env.AI!.run(model, {
+        messages: [{ role: "user", content: prompt }]
+      })
+  });
+
+  if (generation.ok) {
+    await repository.markDigestSuccess({
+      canonicalUrl: message.canonicalUrl,
+      modelUsedFinal: generation.modelUsed,
+      retryCount: generation.attempts.length - 1,
+      artifacts: generation.artifacts
+    });
+    return;
+  }
+
+  const modelUsedFinal = generation.attempts[generation.attempts.length - 1]?.model ?? config.fallbackModel;
+  await repository.markDigestFailure({
+    canonicalUrl: message.canonicalUrl,
+    failureReason: generation.failureReason,
+    modelUsedFinal,
+    retryCount: generation.attempts.length,
+    attemptsJson: JSON.stringify(generation.attempts)
+  });
+}
+
+function safeKeywords(keywordsJson: string): string[] {
+  try {
+    const parsed = JSON.parse(keywordsJson) as Array<{ label?: string }>;
+    return parsed.map((item) => item.label).filter((label): label is string => typeof label === "string");
+  } catch {
+    return [];
+  }
+}
+
 const worker = {
   fetch(request: Request, env: Env, _ctx?: unknown): Response {
     const { pathname } = new URL(request.url);
@@ -78,6 +138,14 @@ const worker = {
   },
   async scheduled(_event: unknown, env: Env, _ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
     await ingest(env);
+  },
+  async queue(
+    batch: { messages: Array<{ body: { canonicalUrl: string; reason: "new" | "changed" } }> },
+    env: Env
+  ): Promise<void> {
+    for (const message of batch.messages) {
+      await processDigestQueueMessage(env, message.body);
+    }
   }
 };
 

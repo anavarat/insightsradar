@@ -23,7 +23,9 @@ export type Env = {
   BLOG_JOB_QUEUE?: {
     send: (message: { canonicalUrl: string; reason: "new" | "changed" }) => Promise<void>;
   };
-  AI?: unknown;
+  AI?: {
+    run: (model: string, input: { messages: Array<{ role: string; content: string }> }) => Promise<unknown>;
+  };
 };
 
 export type AppConfig = {

@@ -117,7 +117,7 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
   - `keyworddigest` (single-line intro).
   - `level1digest` (10-12 bullets; summary plus conclusion).
   - `level2digest` (detailed with required sections).
-- System uses one Workers AI model with prompt variants by digest type.
+- System uses Workers AI with configurable primary and fallback models, with prompt variants by digest type.
 - Soft bounds apply to output lengths; no hard rejection solely for size.
 
 ### FR-6 Validation, Retry, and Failure States
