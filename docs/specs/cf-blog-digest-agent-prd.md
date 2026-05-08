@@ -39,7 +39,7 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
 - Hybrid keyword extraction (explicit mentions plus inferred areas).
 - Keyword normalization with canonical taxonomy first, freeform fallback.
 - Top keyword ranking with default top 5 and configurable max 8.
-- Digest generation via Workers AI (single model in v1).
+- Digest generation via Workers AI with primary and fallback models (config-driven).
 - Schema validation with retry up to 3 times.
 - Cloudflare storage stack:
   - R2 for article and digest artifacts
@@ -123,7 +123,8 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
 ### FR-6 Validation, Retry, and Failure States
 
 - System validates model output against JSON schema.
-- On schema/quality failure, system retries up to 3 attempts.
+- On schema/quality failure, system retries up to 3 attempts on the primary model.
+- If primary-model attempts are exhausted or model calls fail, system switches to the fallback model and retries up to 3 attempts.
 - After retries exhausted, status becomes `digest_failed` with failure reason.
 
 ### FR-7 Metadata and Word Counts
@@ -184,6 +185,7 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
 - Freshness: eligible updates reflected within <= 1 hour plus processing time.
 - Reliability: queue-based decoupling between ingestion and digest generation.
 - Resilience: failed digest jobs are observable and retry-bounded.
+- Model robustness: digest generation supports model failover before terminal failure.
 - Performance: incremental feed loading; avoid full dataset fetch on initial load.
 - Security (v1): no end-user auth; protect admin endpoints via secret token.
 - Maintainability: configurable ingestion mode and keyword count cap.
@@ -219,6 +221,9 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
 - `status` (`pending`, `processed`, `digest_failed`)
 - `failure_reason` (nullable)
 - `retry_count`
+- `model_primary`
+- `model_fallback`
+- `model_used_final`
 - `keywords_json` (ranked keywords plus optional scores)
 - `keyworddigest`
 - `word_count_article`
@@ -266,7 +271,7 @@ Weekly consolidated Cloudflare blog mailers are high-friction to consume end-to-
 - Tile click opens summary view; summary links to detail; detail links back.
 - Detailed view renders scrollable `level2digest` section.
 - Updated source article is auto-reprocessed and outputs overwritten.
-- Schema-failure path retries up to 3 times then marks `digest_failed`.
+- Schema-failure path retries up to 3 times on primary model and then fallback model before marking `digest_failed`.
 - Manual reprocess and backfill endpoints operate with token protection.
 
 ## 13. Risks and Mitigations

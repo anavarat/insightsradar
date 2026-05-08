@@ -1,0 +1,22 @@
+name = "insightsradar"
+main = "src/index.ts"
+compatibility_date = "2026-05-09"
+
+[vars]
+INGESTION_MODE = "product_engineering_only"
+INGESTION_START_DATE = "2026-05-01T00:00:00Z"
+PRIMARY_MODEL = "@cf/moonshotai/kimi-k2-instruct"
+FALLBACK_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+
+[[d1_databases]]
+binding = "BLOG_METADATA_DB"
+database_name = "insightsradar-metadata"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "BLOG_ARTIFACTS_BUCKET"
+bucket_name = "insightsradar-artifacts"
+
+[[queues.producers]]
+binding = "BLOG_JOB_QUEUE"
+queue = "insightsradar-jobs"
