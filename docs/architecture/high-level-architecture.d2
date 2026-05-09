@@ -25,6 +25,7 @@ Cloudflare: {
     Ingest: "Ingest Flow\n(RSS discover/filter)"
     Consumer: "Queue Consumer\n(Digest generation)"
     API: "API Layer\n/api/* + /health"
+    AdminAPI: "Admin Controls\n/api/admin/reprocess\n/api/admin/backfill"
     Assets: "Static Asset Serving\n(SPA fallback)"
   }
 
@@ -69,6 +70,10 @@ Monorepo.Web -> Worker.API: fetch tile feed\n(cursor pagination)
 Worker.API -> D1: query processed articles
 User -> Worker.API: /health
 
+User -> Worker.AdminAPI: token-protected admin calls
+Worker.AdminAPI -> Queue: enqueue manual_reprocess/manual_backfill
+Worker.AdminAPI -> RSS: backfill candidate scan
+
 Worker -> Worker.Assets
 Worker.Assets -> Monorepo.Web: serve built SPA files
 
@@ -77,7 +82,7 @@ Monorepo.Shared -> Worker.API: shared types
 
 RouteOwnership: {
   shape: text
-  label: "Route ownership:\n- /api/* backend\n- /health backend\n- other GET -> index.html fallback"
+  label: "Route ownership:\n- /api/* backend\n- /api/admin/* token-protected\n- /health backend\n- other GET -> index.html fallback"
 }
 
 RouteOwnership -> Worker.API: documents

@@ -45,6 +45,29 @@ function notFound(): Response {
   return json({ error: "Not Found" }, { status: 404 });
 }
 
+function logOps(event: {
+  phase: string;
+  articleId?: string;
+  modelPrimary?: string;
+  modelFallback?: string;
+  modelUsed?: string;
+  outcome?: string;
+  detail?: string;
+}): void {
+  console.log(
+    JSON.stringify({
+      at: new Date().toISOString(),
+      phase: event.phase,
+      articleId: event.articleId ?? null,
+      modelPrimary: event.modelPrimary ?? null,
+      modelFallback: event.modelFallback ?? null,
+      modelUsed: event.modelUsed ?? null,
+      outcome: event.outcome ?? null,
+      detail: event.detail ?? null
+    })
+  );
+}
+
 async function listArticles(request: Request, env: Env): Promise<Response> {
   if (!env.BLOG_METADATA_DB) {
     return json({ error: "BLOG_METADATA_DB binding is required" }, { status: 500 });
@@ -153,6 +176,8 @@ async function ingest(env: Env): Promise<void> {
   const config = loadConfig(env);
   const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
 
+  logOps({ phase: "ingest.start", outcome: "running" });
+
   await runIngestion({
     config,
     repository,
@@ -167,6 +192,8 @@ async function ingest(env: Env): Promise<void> {
       return parseCloudflareRss(xml);
     }
   });
+
+  logOps({ phase: "ingest.finish", outcome: "ok" });
 }
 
 async function processDigestQueueMessage(
@@ -185,8 +212,17 @@ async function processDigestQueueMessage(
 
   const config = loadConfig(env);
   const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+  logOps({
+    phase: "digest.start",
+    articleId: message.canonicalUrl,
+    modelPrimary: config.primaryModel,
+    modelFallback: config.fallbackModel,
+    outcome: "running",
+    detail: message.reason
+  });
   const article = await repository.getArticleForDigest(message.canonicalUrl);
   if (!article) {
+    logOps({ phase: "digest.skip", articleId: message.canonicalUrl, outcome: "article_not_found" });
     return;
   }
 
@@ -234,6 +270,14 @@ async function processDigestQueueMessage(
       r2Level1Key: persisted.keys.level1Key,
       r2Level2Key: persisted.keys.level2Key
     });
+    logOps({
+      phase: "digest.finish",
+      articleId: message.canonicalUrl,
+      modelPrimary: config.primaryModel,
+      modelFallback: config.fallbackModel,
+      modelUsed: generation.modelUsed,
+      outcome: "processed"
+    });
     return;
   }
 
@@ -244,6 +288,15 @@ async function processDigestQueueMessage(
     modelUsedFinal,
     retryCount: generation.attempts.length,
     attemptsJson: JSON.stringify(generation.attempts)
+  });
+  logOps({
+    phase: "digest.finish",
+    articleId: message.canonicalUrl,
+    modelPrimary: config.primaryModel,
+    modelFallback: config.fallbackModel,
+    modelUsed: modelUsedFinal,
+    outcome: "digest_failed",
+    detail: generation.failureReason
   });
 }
 

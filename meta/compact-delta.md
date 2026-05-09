@@ -81,3 +81,9 @@ Current state:
 - Carry-forward: Admin operability contract requires configured admin token (`x-admin-token` or bearer), reprocess enqueues one canonical URL, and backfill enqueues deduped eligible URLs from RSS starting at requested ISO date.
 - Files: `apps/worker/src/index.ts`, `apps/worker/src/admin.ts`, `apps/worker/src/config.ts`, `apps/worker/src/ingest.ts`, `apps/worker/tests/admin.test.ts`, `apps/worker/tests/ingest.test.ts`, `meta/compact-delta.md`.
 - Validation: `npm test` (all workspaces pass; worker 31 tests), `npm run typecheck` (all workspaces pass), `npm run -w @insightsradar/worker dry-run` (pass with assets + bindings).
+
+## 2026-05-10 01:44 AEST
+- Change: Implemented slice #10 operational visibility by adding structured Worker lifecycle logs (`ingest.start/finish`, `digest.start/finish`) with article identity/model/outcome fields, publishing an operator runbook, and updating architecture diagram flows to include admin controls.
+- Carry-forward: Ops visibility contract requires JSON log events with phase/article/model/outcome plus D1 terminal states (`pending`,`processed`,`digest_failed`) for triage and runbook-guided recovery via admin endpoints.
+- Files: `apps/worker/src/index.ts`, `docs/operations/operator-runbook.md`, `docs/architecture/high-level-architecture.d2`, `docs/architecture/high-level-architecture.png`, `meta/compact-delta.md`.
+- Validation: `npm test` (all workspaces pass; worker 31 tests), `npm run typecheck` (all workspaces pass), `npm run build:web` (pass), `npm run -w @insightsradar/worker dry-run` (pass with assets + bindings).
