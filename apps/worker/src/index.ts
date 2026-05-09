@@ -1,6 +1,7 @@
 import { loadConfig, type Env } from "./config";
 import { persistArtifacts } from "./artifacts";
 import { generateDigestsWithFailover } from "./digest";
+import { normalizeLimit } from "./feed";
 import { parseCloudflareRss, runIngestion } from "./ingest";
 import { D1ArticleRepository } from "./repository";
 
@@ -41,6 +42,19 @@ function health(env: Env): Response {
 
 function notFound(): Response {
   return json({ error: "Not Found" }, { status: 404 });
+}
+
+async function listArticles(request: Request, env: Env): Promise<Response> {
+  if (!env.BLOG_METADATA_DB) {
+    return json({ error: "BLOG_METADATA_DB binding is required" }, { status: 500 });
+  }
+
+  const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+  const url = new URL(request.url);
+  const cursor = url.searchParams.get("cursor");
+  const limit = normalizeLimit(url.searchParams.get("limit"));
+  const feed = await repository.listArticleTiles({ cursor, limit });
+  return json(feed);
 }
 
 async function ingest(env: Env): Promise<void> {
@@ -155,11 +169,26 @@ function safeKeywords(keywordsJson: string): string[] {
 }
 
 const worker = {
-  fetch(request: Request, env: Env, _ctx?: unknown): Response {
+  async fetch(request: Request, env: Env, _ctx?: unknown): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname === "/health") {
       return health(env);
     }
+    if (pathname === "/api/articles" && request.method === "GET") {
+      return listArticles(request, env);
+    }
+
+    if (request.method === "GET" && env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+      const fallbackUrl = new URL(request.url);
+      fallbackUrl.pathname = "/index.html";
+      fallbackUrl.search = "";
+      return env.ASSETS.fetch(new Request(fallbackUrl.toString(), request));
+    }
+
     return notFound();
   },
   async scheduled(_event: unknown, env: Env, _ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {

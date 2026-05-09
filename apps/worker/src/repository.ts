@@ -1,4 +1,5 @@
 import type { DigestArtifacts } from "./digest";
+import { decodeCursor, encodeCursor } from "./feed";
 import type { ArticleRecord, ArticleRepository } from "./ingest";
 
 type D1Like = {
@@ -172,6 +173,54 @@ export class D1ArticleRepository implements ArticleRepository {
       )
       .bind("digest_failed", params.failureReason, params.modelUsedFinal, params.retryCount, params.attemptsJson, params.canonicalUrl)
       .run();
+  }
+
+  async listArticleTiles(params: { cursor: string | null; limit: number }): Promise<{
+    items: Array<{ articleId: string; articleTitle: string; keyworddigest: string; publishedAt: string }>;
+    nextCursor: string | null;
+  }> {
+    await this.ensureSchema();
+    const cursor = decodeCursor(params.cursor);
+
+    const result = cursor
+      ? await this.db
+          .prepare(
+            `SELECT canonical_url, title, keyworddigest, published_at
+             FROM articles
+             WHERE status = 'processed'
+               AND keyworddigest IS NOT NULL
+               AND (published_at < ? OR (published_at = ? AND canonical_url < ?))
+             ORDER BY published_at DESC, canonical_url DESC
+             LIMIT ?`
+          )
+          .bind(cursor.publishedAt, cursor.publishedAt, cursor.canonicalUrl, params.limit + 1)
+          .all<{ canonical_url: string; title: string; keyworddigest: string; published_at: string }>()
+      : await this.db
+          .prepare(
+            `SELECT canonical_url, title, keyworddigest, published_at
+             FROM articles
+             WHERE status = 'processed'
+               AND keyworddigest IS NOT NULL
+             ORDER BY published_at DESC, canonical_url DESC
+             LIMIT ?`
+          )
+          .bind(params.limit + 1)
+          .all<{ canonical_url: string; title: string; keyworddigest: string; published_at: string }>();
+
+    const hasMore = result.results.length > params.limit;
+    const rows = hasMore ? result.results.slice(0, params.limit) : result.results;
+
+    const items = rows.map((row) => ({
+      articleId: row.canonical_url,
+      articleTitle: row.title,
+      keyworddigest: row.keyworddigest,
+      publishedAt: row.published_at
+    }));
+
+    const next = rows[rows.length - 1];
+    const nextCursor = hasMore && next ? encodeCursor({ publishedAt: next.published_at, canonicalUrl: next.canonical_url }) : null;
+
+    return { items, nextCursor };
   }
 
   private async ensureSchema(): Promise<void> {

@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  background: linear-gradient(180deg, #f7fafc 0%, #eef3f9 100%);
+  background: radial-gradient(circle at top left, #f0f9ff 0%, #e2e8f0 45%, #f8fafc 100%);
   color: #0f172a;
 }
 
@@ -10,11 +10,56 @@ body {
 }
 
 .shell {
-  max-width: 840px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 2rem 1.25rem;
+  padding: 2rem 1rem 3rem;
 }
 
 h1 {
-  margin-top: 0;
+  margin: 0 0 1rem;
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.tile {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tile h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.tile p {
+  margin: 0.75rem 0;
+  line-height: 1.4;
+}
+
+.tile time {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.status {
+  margin-top: 1rem;
+}
+
+.sentinel {
+  height: 1px;
+}
+
+@media (max-width: 760px) {
+  .tile-grid {
+    grid-template-columns: 1fr;
+  }
 }

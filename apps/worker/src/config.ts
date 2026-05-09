@@ -28,6 +28,9 @@ export type Env = {
   AI?: {
     run: (model: string, input: { messages: Array<{ role: string; content: string }> }) => Promise<unknown>;
   };
+  ASSETS?: {
+    fetch: (request: Request) => Promise<Response>;
+  };
 };
 
 export type AppConfig = {
