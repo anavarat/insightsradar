@@ -1,0 +1,83 @@
+direction: right
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+title: InsightsRadar v1 - High-Level Architecture
+
+User: User
+
+Cloudflare: {
+  label: "Cloudflare Platform"
+  icon: "./icons/cf/cloudflare-one.svg"
+
+  Cron: {
+    label: "Cron Trigger\n(hourly)"
+    icon: "./icons/cf/workers.svg"
+  }
+
+  Worker: {
+    label: "Worker Runtime\napps/worker"
+    icon: "./icons/cf/workers.svg"
+
+    Ingest: "Ingest Flow\n(RSS discover/filter)"
+    Consumer: "Queue Consumer\n(Digest generation)"
+    API: "API Layer\n/api/* + /health"
+    Assets: "Static Asset Serving\n(SPA fallback)"
+  }
+
+  Queue: {
+    label: "Cloudflare Queue\nBLOG_JOB_QUEUE"
+    icon: "./icons/cf/queues.svg"
+  }
+  D1: {
+    label: "D1\nBLOG_METADATA_DB"
+    icon: "./icons/cf/d1.svg"
+  }
+  R2: {
+    label: "R2\nBLOG_ARTIFACTS_BUCKET"
+    icon: "./icons/cf/r2.svg"
+  }
+  AI: {
+    label: "Workers AI\nPrimary + Fallback Models"
+    icon: "./icons/cf/workers-ai.svg"
+  }
+}
+
+Monorepo: {
+  Web: "apps/web\nReact + Router\nArticlesTileView"
+  Shared: "packages/shared\nAPI Contracts / Types"
+}
+
+RSS: "Cloudflare Blog RSS"
+
+Cron -> Worker.Ingest: trigger hourly
+Worker.Ingest -> RSS: fetch feed
+Worker.Ingest -> D1: upsert article metadata
+Worker.Ingest -> Queue: enqueue new/changed URLs
+
+Queue -> Worker.Consumer: deliver jobs
+Worker.Consumer -> D1: read article + keywords
+Worker.Consumer -> AI: generate 3 digest levels
+Worker.Consumer -> R2: persist source/digest artifacts
+Worker.Consumer -> D1: persist status, counts, keys
+
+User -> Monorepo.Web: browse UI
+Monorepo.Web -> Worker.API: fetch tile feed\n(cursor pagination)
+Worker.API -> D1: query processed articles
+User -> Worker.API: /health
+
+Worker -> Worker.Assets
+Worker.Assets -> Monorepo.Web: serve built SPA files
+
+Monorepo.Shared -> Monorepo.Web: shared types
+Monorepo.Shared -> Worker.API: shared types
+
+RouteOwnership: {
+  shape: text
+  label: "Route ownership:\n- /api/* backend\n- /health backend\n- other GET -> index.html fallback"
+}
+
+RouteOwnership -> Worker.API: documents
