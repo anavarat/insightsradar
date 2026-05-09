@@ -1,18 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
-import type { ArticleTileFeed } from "@insightsradar/shared";
+import { BrowserRouter, Link, Route, Routes, useParams } from "react-router-dom";
+import type { ArticleDetail, ArticleSummary, ArticleTileFeed } from "@insightsradar/shared";
 import "./styles.css";
-
-function PlaceholderPage(props: { title: string }) {
-  return (
-    <main className="shell">
-      <h1>{props.title}</h1>
-      <p>Monorepo web scaffold is ready. Slice UI implementation follows in #7/#8.</p>
-      <Link to="/">Back to main</Link>
-    </main>
-  );
-}
 
 function HomePage() {
   const [items, setItems] = React.useState<ArticleTileFeed["items"]>([]);
@@ -98,13 +88,138 @@ function HomePage() {
   );
 }
 
+function ArticleSummaryPage() {
+  const { id } = useParams();
+  const articleId = decodeURIComponent(id ?? "");
+  const [data, setData] = React.useState<ArticleSummary | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!articleId) {
+      return;
+    }
+    const run = async () => {
+      try {
+        const qs = new URLSearchParams({ id: articleId });
+        const response = await fetch(`/api/articles/summary?${qs.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load summary (${response.status})`);
+        }
+        const payload = (await response.json()) as ArticleSummary;
+        setData(payload);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      }
+    };
+    void run();
+  }, [articleId]);
+
+  if (!articleId) {
+    return <main className="shell">Invalid article id.</main>;
+  }
+
+  if (error) {
+    return <main className="shell">{error}</main>;
+  }
+
+  if (!data) {
+    return <main className="shell">Loading summary...</main>;
+  }
+
+  return (
+    <main className="shell">
+      <div className="nav-links">
+        <Link to="/">Main</Link>
+        <Link to={`/article/${encodeURIComponent(data.articleId)}/detail`}>Detailed View</Link>
+      </div>
+      <h1>{data.articleTitle}</h1>
+      <p className="hero">{data.keyworddigest}</p>
+      <ul>
+        {data.level1digest.map((line, idx) => (
+          <li key={`${idx}:${line}`}>{line}</li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+
+function ArticleDetailPage() {
+  const { id } = useParams();
+  const articleId = decodeURIComponent(id ?? "");
+  const [data, setData] = React.useState<ArticleDetail | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!articleId) {
+      return;
+    }
+    const run = async () => {
+      try {
+        const qs = new URLSearchParams({ id: articleId });
+        const response = await fetch(`/api/articles/detail?${qs.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load detail (${response.status})`);
+        }
+        const payload = (await response.json()) as ArticleDetail;
+        setData(payload);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      }
+    };
+    void run();
+  }, [articleId]);
+
+  if (!articleId) {
+    return <main className="shell">Invalid article id.</main>;
+  }
+
+  if (error) {
+    return <main className="shell">{error}</main>;
+  }
+
+  if (!data) {
+    return <main className="shell">Loading detailed view...</main>;
+  }
+
+  return (
+    <main className="shell">
+      <div className="nav-links">
+        <Link to="/">Main</Link>
+        <Link to={`/article/${encodeURIComponent(data.articleId)}/summary`}>Summary View</Link>
+      </div>
+      <h1>{data.articleTitle}</h1>
+      <p className="hero">{data.keyworddigest}</p>
+      <section className="detail-scroll">
+        <h2>Concepts / Entities</h2>
+        <ul>
+          {data.level2digest.conceptsEntities.map((line, idx) => (
+            <li key={`c:${idx}:${line}`}>{line}</li>
+          ))}
+        </ul>
+        <h2>Summary</h2>
+        <ul>
+          {data.level2digest.summaryBullets.map((line, idx) => (
+            <li key={`s:${idx}:${line}`}>{line}</li>
+          ))}
+        </ul>
+        <h2>Conclusion</h2>
+        <ul>
+          {data.level2digest.conclusionBullets.map((line, idx) => (
+            <li key={`k:${idx}:${line}`}>{line}</li>
+          ))}
+        </ul>
+      </section>
+    </main>
+  );
+}
+
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/article/:id/summary" element={<PlaceholderPage title="ArticleSummaryView" />} />
-        <Route path="/article/:id/detail" element={<PlaceholderPage title="ArticleDetailView" />} />
+        <Route path="/article/:id/summary" element={<ArticleSummaryPage />} />
+        <Route path="/article/:id/detail" element={<ArticleDetailPage />} />
       </Routes>
     </BrowserRouter>
   );

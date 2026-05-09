@@ -58,3 +58,8 @@ Current state:
 - Change: Implemented slice #7 `ArticlesTileView` with React infinite scroll and added `/api/articles` cursor feed API (opaque cursor by `(published_at, canonical_url)`), with Worker SPA fallback for non-API GET routes.
 - Files: `apps/worker/src/index.ts`, `apps/worker/src/repository.ts`, `apps/worker/src/feed.ts`, `apps/worker/src/config.ts`, `apps/worker/tests/feed.test.ts`, `apps/web/src/main.tsx`, `apps/web/src/styles.css`, `apps/web/package.json`, `package-lock.json`, `meta/compact-delta.md`.
 - Validation: `npm test` (all workspaces pass; worker 26 tests), `npm run typecheck` (all workspaces pass), `npm run build:web` (pass), `npm run -w @insightsradar/worker dry-run` (pass with assets + bindings).
+
+## 2026-05-10 01:21 AEST
+- Change: Implemented slice #8 summary/detail flow by adding `/api/articles/summary` and `/api/articles/detail` endpoints plus React `ArticleSummaryView` and `ArticleDetailView` with bidirectional navigation and scrollable detailed section.
+- Files: `apps/worker/src/index.ts`, `apps/worker/src/repository.ts`, `apps/web/src/main.tsx`, `apps/web/src/styles.css`, `packages/shared/src/index.ts`, `meta/compact-delta.md`.
+- Validation: `npm test` (all workspaces pass; worker 26 tests), `npm run typecheck` (all workspaces pass), `npm run build:web` (pass), `npm run -w @insightsradar/worker dry-run` (pass with assets + bindings).

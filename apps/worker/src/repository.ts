@@ -223,6 +223,65 @@ export class D1ArticleRepository implements ArticleRepository {
     return { items, nextCursor };
   }
 
+  async getArticleSummary(articleId: string): Promise<{
+    articleId: string;
+    articleTitle: string;
+    keyworddigest: string;
+    level1digest: string[];
+  } | null> {
+    await this.ensureSchema();
+    const row = await this.db
+      .prepare(
+        `SELECT canonical_url, title, keyworddigest, level1digest_json
+         FROM articles
+         WHERE canonical_url = ? AND status = 'processed'`
+      )
+      .bind(articleId)
+      .all<{ canonical_url: string; title: string; keyworddigest: string; level1digest_json: string }>();
+    const item = row.results[0];
+    if (!item || !item.keyworddigest || !item.level1digest_json) {
+      return null;
+    }
+    return {
+      articleId: item.canonical_url,
+      articleTitle: item.title,
+      keyworddigest: item.keyworddigest,
+      level1digest: parseStringArray(item.level1digest_json)
+    };
+  }
+
+  async getArticleDetail(articleId: string): Promise<{
+    articleId: string;
+    articleTitle: string;
+    keyworddigest: string;
+    level2digest: {
+      conceptsEntities: string[];
+      summaryBullets: string[];
+      conclusionBullets: string[];
+    };
+  } | null> {
+    await this.ensureSchema();
+    const row = await this.db
+      .prepare(
+        `SELECT canonical_url, title, keyworddigest, level2digest_json
+         FROM articles
+         WHERE canonical_url = ? AND status = 'processed'`
+      )
+      .bind(articleId)
+      .all<{ canonical_url: string; title: string; keyworddigest: string; level2digest_json: string }>();
+    const item = row.results[0];
+    if (!item || !item.keyworddigest || !item.level2digest_json) {
+      return null;
+    }
+    const parsed = parseLevel2(item.level2digest_json);
+    return {
+      articleId: item.canonical_url,
+      articleTitle: item.title,
+      keyworddigest: item.keyworddigest,
+      level2digest: parsed
+    };
+  }
+
   private async ensureSchema(): Promise<void> {
     await this.db.exec(`CREATE TABLE IF NOT EXISTS articles (
       canonical_url TEXT PRIMARY KEY,
@@ -308,5 +367,40 @@ export class D1ArticleRepository implements ArticleRepository {
     await this.db.exec("ALTER TABLE articles ADD COLUMN r2_level2_key TEXT").catch(() => {
       return;
     });
+  }
+}
+
+function parseStringArray(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+}
+
+function parseLevel2(raw: string): { conceptsEntities: string[]; summaryBullets: string[]; conclusionBullets: string[] } {
+  try {
+    const parsed = JSON.parse(raw) as {
+      conceptsEntities?: unknown;
+      summaryBullets?: unknown;
+      conclusionBullets?: unknown;
+    };
+    return {
+      conceptsEntities: Array.isArray(parsed.conceptsEntities)
+        ? parsed.conceptsEntities.filter((x): x is string => typeof x === "string")
+        : [],
+      summaryBullets: Array.isArray(parsed.summaryBullets)
+        ? parsed.summaryBullets.filter((x): x is string => typeof x === "string")
+        : [],
+      conclusionBullets: Array.isArray(parsed.conclusionBullets)
+        ? parsed.conclusionBullets.filter((x): x is string => typeof x === "string")
+        : []
+    };
+  } catch {
+    return { conceptsEntities: [], summaryBullets: [], conclusionBullets: [] };
   }
 }

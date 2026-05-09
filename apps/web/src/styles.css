@@ -54,6 +54,27 @@ h1 {
   margin-top: 1rem;
 }
 
+.nav-links {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.hero {
+  border-left: 3px solid #0ea5e9;
+  padding-left: 0.75rem;
+  line-height: 1.5;
+}
+
+.detail-scroll {
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .sentinel {
   height: 1px;
 }

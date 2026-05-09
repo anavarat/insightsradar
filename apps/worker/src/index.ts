@@ -57,6 +57,38 @@ async function listArticles(request: Request, env: Env): Promise<Response> {
   return json(feed);
 }
 
+async function getArticleSummary(request: Request, env: Env): Promise<Response> {
+  if (!env.BLOG_METADATA_DB) {
+    return json({ error: "BLOG_METADATA_DB binding is required" }, { status: 500 });
+  }
+  const articleId = new URL(request.url).searchParams.get("id");
+  if (!articleId) {
+    return json({ error: "id is required" }, { status: 400 });
+  }
+  const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+  const summary = await repository.getArticleSummary(articleId);
+  if (!summary) {
+    return json({ error: "Article not found" }, { status: 404 });
+  }
+  return json(summary);
+}
+
+async function getArticleDetail(request: Request, env: Env): Promise<Response> {
+  if (!env.BLOG_METADATA_DB) {
+    return json({ error: "BLOG_METADATA_DB binding is required" }, { status: 500 });
+  }
+  const articleId = new URL(request.url).searchParams.get("id");
+  if (!articleId) {
+    return json({ error: "id is required" }, { status: 400 });
+  }
+  const repository = new D1ArticleRepository(env.BLOG_METADATA_DB);
+  const detail = await repository.getArticleDetail(articleId);
+  if (!detail) {
+    return json({ error: "Article not found" }, { status: 404 });
+  }
+  return json(detail);
+}
+
 async function ingest(env: Env): Promise<void> {
   if (!env.BLOG_METADATA_DB) {
     throw new Error("BLOG_METADATA_DB binding is required");
@@ -176,6 +208,12 @@ const worker = {
     }
     if (pathname === "/api/articles" && request.method === "GET") {
       return listArticles(request, env);
+    }
+    if (pathname === "/api/articles/summary" && request.method === "GET") {
+      return getArticleSummary(request, env);
+    }
+    if (pathname === "/api/articles/detail" && request.method === "GET") {
+      return getArticleDetail(request, env);
     }
 
     if (request.method === "GET" && env.ASSETS) {
