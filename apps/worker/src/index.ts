@@ -1,8 +1,9 @@
+import { isAdminAuthorized, parseCanonicalUrl, parseIsoDate } from "./admin";
 import { loadConfig, type Env } from "./config";
 import { persistArtifacts } from "./artifacts";
 import { generateDigestsWithFailover } from "./digest";
 import { normalizeLimit } from "./feed";
-import { parseCloudflareRss, runIngestion } from "./ingest";
+import { filterEligibleArticles, parseCloudflareRss, runIngestion } from "./ingest";
 import { D1ArticleRepository } from "./repository";
 
 type HealthResponse = {
@@ -55,6 +56,58 @@ async function listArticles(request: Request, env: Env): Promise<Response> {
   const limit = normalizeLimit(url.searchParams.get("limit"));
   const feed = await repository.listArticleTiles({ cursor, limit });
   return json(feed);
+}
+
+async function adminReprocess(request: Request, env: Env): Promise<Response> {
+  if (!env.BLOG_JOB_QUEUE) {
+    return json({ error: "BLOG_JOB_QUEUE binding is required" }, { status: 500 });
+  }
+  if (!isAdminAuthorized(request, env.ADMIN_TOKEN)) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json().catch(() => null)) as { canonical_url?: unknown; canonicalUrl?: unknown } | null;
+  const canonicalUrl = parseCanonicalUrl(body?.canonical_url ?? body?.canonicalUrl);
+  if (!canonicalUrl) {
+    return json({ error: "canonical_url must be a valid URL" }, { status: 400 });
+  }
+
+  await env.BLOG_JOB_QUEUE.send({ canonicalUrl, reason: "manual_reprocess" });
+  return json({ enqueued: 1, canonicalUrl, reason: "manual_reprocess" });
+}
+
+async function adminBackfill(request: Request, env: Env): Promise<Response> {
+  if (!env.BLOG_JOB_QUEUE) {
+    return json({ error: "BLOG_JOB_QUEUE binding is required" }, { status: 500 });
+  }
+  if (!isAdminAuthorized(request, env.ADMIN_TOKEN)) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json().catch(() => null)) as { start_date?: unknown; startDate?: unknown } | null;
+  const startDate = parseIsoDate(body?.start_date ?? body?.startDate);
+  if (!startDate) {
+    return json({ error: "start_date must be a valid ISO date" }, { status: 400 });
+  }
+
+  const config = loadConfig(env);
+  const response = await fetch("https://blog.cloudflare.com/rss/");
+  if (!response.ok) {
+    return json({ error: `Failed to fetch Cloudflare RSS: ${response.status}` }, { status: 502 });
+  }
+  const xml = await response.text();
+  const discovered = parseCloudflareRss(xml);
+  const eligible = filterEligibleArticles(discovered, { ...config, ingestionStartDate: startDate });
+
+  const deduped = new Map<string, true>();
+  for (const article of eligible) {
+    deduped.set(article.canonicalUrl, true);
+  }
+  for (const canonicalUrl of deduped.keys()) {
+    await env.BLOG_JOB_QUEUE.send({ canonicalUrl, reason: "manual_backfill" });
+  }
+
+  return json({ enqueued: deduped.size, eligible: eligible.length, startDate, reason: "manual_backfill" });
 }
 
 async function getArticleSummary(request: Request, env: Env): Promise<Response> {
@@ -116,7 +169,10 @@ async function ingest(env: Env): Promise<void> {
   });
 }
 
-async function processDigestQueueMessage(env: Env, message: { canonicalUrl: string; reason: "new" | "changed" }): Promise<void> {
+async function processDigestQueueMessage(
+  env: Env,
+  message: { canonicalUrl: string; reason: "new" | "changed" | "manual_reprocess" | "manual_backfill" }
+): Promise<void> {
   if (!env.BLOG_METADATA_DB) {
     throw new Error("BLOG_METADATA_DB binding is required");
   }
@@ -215,6 +271,12 @@ const worker = {
     if (pathname === "/api/articles/detail" && request.method === "GET") {
       return getArticleDetail(request, env);
     }
+    if (pathname === "/api/admin/reprocess" && request.method === "POST") {
+      return adminReprocess(request, env);
+    }
+    if (pathname === "/api/admin/backfill" && request.method === "POST") {
+      return adminBackfill(request, env);
+    }
 
     if (request.method === "GET" && env.ASSETS) {
       const assetResponse = await env.ASSETS.fetch(request);
@@ -233,7 +295,7 @@ const worker = {
     await ingest(env);
   },
   async queue(
-    batch: { messages: Array<{ body: { canonicalUrl: string; reason: "new" | "changed" } }> },
+    batch: { messages: Array<{ body: { canonicalUrl: string; reason: "new" | "changed" | "manual_reprocess" | "manual_backfill" } }> },
     env: Env
   ): Promise<void> {
     for (const message of batch.messages) {

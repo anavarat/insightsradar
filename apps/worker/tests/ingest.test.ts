@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterEligibleArticles, parseCloudflareRss, runIngestion, type ArticleRecord } from "../src/ingest";
+import { filterEligibleArticles, parseCloudflareRss, runIngestion, type ArticleRecord, type JobReason } from "../src/ingest";
 
 describe("ingestion eligibility", () => {
   const baseConfig = {
@@ -67,7 +67,7 @@ describe("ingestion eligibility", () => {
 describe("runIngestion", () => {
   it("dedupes by canonical URL before persisting", async () => {
     const persisted: ArticleRecord[] = [];
-    const queued: Array<{ canonicalUrl: string; reason: "new" | "changed" }> = [];
+    const queued: Array<{ canonicalUrl: string; reason: JobReason }> = [];
 
     const count = await runIngestion({
       config: {
@@ -118,7 +118,7 @@ describe("runIngestion", () => {
   });
 
   it("only enqueues changed records when content hash differs", async () => {
-    const queued: Array<{ canonicalUrl: string; reason: "new" | "changed" }> = [];
+    const queued: Array<{ canonicalUrl: string; reason: JobReason }> = [];
 
     const count = await runIngestion({
       config: {

@@ -23,8 +23,11 @@ export type ArticleRepository = {
 };
 
 export type ArticleJobQueue = {
-  send(message: { canonicalUrl: string; reason: "new" | "changed" }): Promise<void>;
+  send(message: { canonicalUrl: string; reason: JobReason }): Promise<void>;
 };
+
+export type JobReason = "new" | "changed" | "manual_reprocess" | "manual_backfill";
+type IngestionJobReason = "new" | "changed";
 
 export type IngestionStats = {
   discovered: number;
@@ -75,7 +78,7 @@ export async function runIngestion(params: {
       }
       return null;
     })
-    .filter((x): x is { canonicalUrl: string; reason: "new" | "changed" } => x !== null);
+    .filter((x): x is { canonicalUrl: string; reason: IngestionJobReason } => x !== null);
 
   for (const job of jobs) {
     await params.queue.send(job);

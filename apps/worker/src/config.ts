@@ -23,7 +23,7 @@ export type Env = {
     put: (key: string, value: string, options?: { httpMetadata?: { contentType?: string } }) => Promise<unknown>;
   };
   BLOG_JOB_QUEUE?: {
-    send: (message: { canonicalUrl: string; reason: "new" | "changed" }) => Promise<void>;
+    send: (message: { canonicalUrl: string; reason: "new" | "changed" | "manual_reprocess" | "manual_backfill" }) => Promise<void>;
   };
   AI?: {
     run: (model: string, input: { messages: Array<{ role: string; content: string }> }) => Promise<unknown>;
