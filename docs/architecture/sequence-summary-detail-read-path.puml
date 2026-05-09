@@ -1,0 +1,37 @@
+@startuml
+title InsightsRadar v1 - Summary and Detail Read Path
+
+actor User
+participant "Web App" as Web
+participant "Worker API\n/articles/summary + /articles/detail" as API
+database "D1 Metadata DB" as D1
+
+User -> Web: click tile in ArticlesTileView
+Web -> Web: navigate /article/:id/summary
+Web -> API: GET /api/articles/summary?id=<articleId>
+API -> D1: fetch processed summary payload
+alt article exists
+  D1 --> API: title + keyworddigest + level1digest
+  API --> Web: summary response
+  Web -> User: render ArticleSummaryView
+else not found
+  D1 --> API: empty
+  API --> Web: 404
+  Web -> User: show error state
+end
+
+User -> Web: click Detailed View
+Web -> Web: navigate /article/:id/detail
+Web -> API: GET /api/articles/detail?id=<articleId>
+API -> D1: fetch processed detail payload
+alt article exists
+  D1 --> API: title + keyworddigest + level2digest
+  API --> Web: detail response
+  Web -> User: render ArticleDetailView\n(scrollable level2 section)
+else not found
+  D1 --> API: empty
+  API --> Web: 404
+  Web -> User: show error state
+end
+
+@enduml

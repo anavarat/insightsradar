@@ -1,0 +1,30 @@
+@startuml
+title InsightsRadar v1 - ArticlesTileView Infinite Scroll
+
+actor User
+participant "Web App\nArticlesTileView" as Web
+participant "Worker API\nGET /api/articles" as API
+database "D1 Metadata DB" as D1
+
+User -> Web: open /
+Web -> API: GET /api/articles?limit=20
+API -> D1: query processed tiles\nORDER BY published_at DESC, canonical_url DESC
+D1 --> API: rows + hasMore
+API --> Web: items + nextCursor
+Web -> Web: render 2-col desktop / 1-col mobile
+
+loop while sentinel intersects and nextCursor != null
+  Web -> API: GET /api/articles?cursor=<opaque>&limit=20
+  API -> D1: cursor tuple pagination
+  D1 --> API: next rows
+  API --> Web: append items + nextCursor
+end
+
+alt request error
+  API --> Web: non-2xx response
+  Web -> Web: show error + retry CTA
+  User -> Web: click Retry
+  Web -> API: repeat last page request
+end
+
+@enduml

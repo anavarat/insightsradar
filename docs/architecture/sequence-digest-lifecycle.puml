@@ -1,0 +1,67 @@
+@startuml
+title InsightsRadar v1 - End-to-End Digest Lifecycle
+
+actor User
+participant "Cron Trigger" as Cron
+participant "Worker: Ingest Flow" as Ingest
+participant "Cloudflare Blog RSS" as RSS
+database "D1 Metadata DB" as D1
+queue "Cloudflare Queue" as Q
+participant "Worker: Queue Consumer" as Digest
+participant "Workers AI\n(Primary/Fallback)" as AI
+collections "R2 Artifact Store" as R2
+participant "Worker API (/api/*)" as API
+participant "Web App (React)" as Web
+
+== Ingestion ==
+Cron -> Ingest: hourly scheduled run
+Ingest -> RSS: fetch RSS feed
+RSS --> Ingest: feed items
+Ingest -> Ingest: filter by start date + ingestion mode
+Ingest -> D1: upsert metadata (status=pending)
+Ingest -> Q: enqueue new/changed canonical URLs
+
+== Digest Processing ==
+Q -> Digest: deliver article job
+Digest -> D1: fetch article + keywords
+Digest -> AI: generate digests (primary model)
+alt primary succeeds
+  AI --> Digest: valid JSON digest payload
+else primary fails/retries exhausted
+  Digest -> AI: switch to fallback model
+  AI --> Digest: success OR terminal failure
+end
+
+alt digest success
+  Digest -> R2: write source/level1/level2/processing artifacts
+  Digest -> D1: update status=processed\nword counts + model fields + keys
+else digest failure
+  Digest -> D1: update status=digest_failed\nfailure_reason + retry_count
+end
+
+== UI Read Path ==
+User -> Web: open app
+Web -> API: GET /api/articles?cursor=...
+API -> D1: query processed tiles
+D1 --> API: items + nextCursor
+API --> Web: tile feed payload
+
+Web -> API: GET /api/articles/summary?id=...
+API -> D1: fetch summary payload
+D1 --> API: summary data
+API --> Web: summary response
+
+Web -> API: GET /api/articles/detail?id=...
+API -> D1: fetch detail payload
+D1 --> API: detail data
+API --> Web: detail response
+
+== Manual Ops ==
+User -> API: POST /api/admin/reprocess (token)
+API -> Q: enqueue manual_reprocess
+
+User -> API: POST /api/admin/backfill (token,start_date)
+API -> RSS: scan feed for eligible posts
+API -> Q: enqueue manual_backfill jobs
+
+@enduml

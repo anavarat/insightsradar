@@ -1,0 +1,43 @@
+@startuml
+title InsightsRadar v1 - End-to-End Smoke Validation Loop
+
+actor Operator
+participant "Cron / Manual Trigger" as Trigger
+participant "Worker Ingest" as Ingest
+participant "Cloudflare RSS" as RSS
+queue "Queue" as Q
+participant "Worker Digest Consumer" as Digest
+database "D1" as D1
+collections "R2" as R2
+participant "Web App" as Web
+participant "Worker API" as API
+
+Operator -> Trigger: run smoke sequence
+Trigger -> Ingest: start ingest
+Ingest -> RSS: fetch feed
+Ingest -> D1: upsert candidates
+Ingest -> Q: enqueue jobs
+
+Q -> Digest: deliver jobs
+Digest -> D1: read + update terminal state
+Digest -> R2: write artifacts
+
+Operator -> Web: open /
+Web -> API: GET /api/articles
+API -> D1: query processed tiles
+D1 --> API: feed rows
+API --> Web: tile payload
+
+Operator -> Web: open summary route
+Web -> API: GET /api/articles/summary?id=...
+API -> D1: summary payload lookup
+API --> Web: summary data
+
+Operator -> Web: open detail route
+Web -> API: GET /api/articles/detail?id=...
+API -> D1: detail payload lookup
+API --> Web: detail data
+
+Operator -> Operator: mark smoke pass/fail
+
+@enduml

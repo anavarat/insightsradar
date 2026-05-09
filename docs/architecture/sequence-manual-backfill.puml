@@ -1,0 +1,31 @@
+@startuml
+title InsightsRadar v1 - Manual Backfill Flow
+
+actor Operator
+participant "Worker API\nPOST /api/admin/backfill" as API
+participant "Cloudflare Blog RSS" as RSS
+queue "Cloudflare Queue" as Q
+participant "Worker Queue Consumer" as Digest
+database "D1 Metadata DB" as D1
+
+Operator -> API: POST /api/admin/backfill\n{start_date}
+alt invalid or missing token
+  API --> Operator: 401 Unauthorized
+else invalid start_date
+  API --> Operator: 400 Bad Request
+else accepted
+  API -> RSS: fetch feed
+  RSS --> API: feed items
+  API -> API: filter eligible by start_date + mode
+  API -> API: dedupe canonical URLs
+  loop per eligible URL
+    API -> Q: enqueue {canonicalUrl, reason=manual_backfill}
+  end
+  API --> Operator: 200 {enqueued:n}
+end
+
+Q -> Digest: deliver jobs
+Digest -> D1: read article + keywords
+Digest -> D1: terminal state updates\n(processed or digest_failed)
+
+@enduml

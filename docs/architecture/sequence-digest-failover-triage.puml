@@ -1,0 +1,33 @@
+@startuml
+title InsightsRadar v1 - Digest Failover and Triage
+
+participant "Worker Queue Consumer" as Digest
+participant "Workers AI Primary" as Primary
+participant "Workers AI Fallback" as Fallback
+database "D1 Metadata DB" as D1
+actor Operator
+participant "Worker API\n/admin/reprocess" as API
+queue "Cloudflare Queue" as Q
+
+Digest -> Primary: attempt 1..3
+alt primary succeeds
+  Primary --> Digest: valid schema payload
+  Digest -> D1: status=processed
+else primary exhausted
+  Digest -> Fallback: attempt 1..3
+  alt fallback succeeds
+    Fallback --> Digest: valid schema payload
+    Digest -> D1: status=processed\nmodel_used_final=fallback
+  else fallback exhausted
+    Fallback --> Digest: failures
+    Digest -> D1: status=digest_failed\nfailure_reason + retry_count + attempts trace
+  end
+end
+
+== Triage ==
+Operator -> D1: inspect failed record fields
+Operator -> API: manual reprocess request
+API -> Q: enqueue manual_reprocess
+Q -> Digest: re-run digest pipeline
+
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+title InsightsRadar v1 - Manual Reprocess Flow
+
+actor Operator
+participant "Worker API\nPOST /api/admin/reprocess" as API
+queue "Cloudflare Queue" as Q
+participant "Worker Queue Consumer" as Digest
+database "D1 Metadata DB" as D1
+collections "R2 Artifact Store" as R2
+participant "Workers AI" as AI
+
+Operator -> API: POST /api/admin/reprocess\n{canonical_url}
+alt invalid or missing token
+  API --> Operator: 401 Unauthorized
+else invalid canonical_url
+  API --> Operator: 400 Bad Request
+else accepted
+  API -> Q: enqueue {canonicalUrl, reason=manual_reprocess}
+  API --> Operator: 200 {enqueued:1}
+end
+
+Q -> Digest: deliver job
+Digest -> D1: fetch article + keywords
+alt article not found
+  Digest -> D1: no state mutation (skip)
+else article exists
+  Digest -> AI: generate digests (primary/fallback policy)
+  alt generation success
+    Digest -> R2: persist artifacts
+    Digest -> D1: status=processed + counts + keys
+  else generation failure
+    Digest -> D1: status=digest_failed + failure_reason + retry_count
+  end
+end
+
+@enduml
